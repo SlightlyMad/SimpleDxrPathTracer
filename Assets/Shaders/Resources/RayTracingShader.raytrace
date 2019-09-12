@@ -1,0 +1,80 @@
+﻿#include "Common.cginc"
+
+// texture to store raytracing result
+RWTexture2D<float4> _DxrTarget;
+
+float3 _TopLeftFrustumDir;
+float3 _TopRightFrustumDir;
+float3 _BottomLeftFrustumDir;
+float3 _BottomRightFrustumDir;
+
+float4 _SkyColor;
+float4 _GroundColor;
+
+float3 _CameraPos;
+
+int _RaysPerPixel;
+int _FrameIndex;
+
+#pragma max_recursion_depth 8
+
+[shader("raygeneration")]
+void MyRaygenShader()
+{
+	// start one ray per pixel
+
+	// current pixel
+	uint2 dispatchIdx = DispatchRaysIndex().xy;
+	// target resolution
+	uint2 launchDim = DispatchRaysDimensions().xy;
+	
+	// init random seed from current pixel location and frame index
+	uint seed = initRand(dispatchIdx.x + dispatchIdx.y * launchDim.x, _FrameIndex);
+	//uint seed = initRand((dispatchIdx.x + dispatchIdx.y * launchDim.x) * _FrameIndex * 2);
+
+	// get random uv inside current pixel
+	// this will give us anti-aliasing for free
+	float2 uv = ((float2)dispatchIdx + float2(nextRand(seed), nextRand(seed))) / (float2)launchDim;
+	
+	// translate screen uv to ray direction
+	float3 topHorizontalRayDir = lerp(_TopLeftFrustumDir, _TopRightFrustumDir, uv.x);
+	float3 bottomHorizontalRayDir = lerp(_BottomLeftFrustumDir, _BottomRightFrustumDir, uv.x);
+	float3 rayDir = normalize(lerp(bottomHorizontalRayDir, topHorizontalRayDir, uv.y));
+
+	// init ray decriptor
+	RayDesc rayDesc;
+	rayDesc.Origin = _CameraPos; // start at camera position
+	rayDesc.Direction = rayDir;
+	rayDesc.TMin = 0;
+	rayDesc.TMax = 100;
+
+	// Create and init the ray payload
+	RayPayload rayPayload;
+	rayPayload.color = float3(0.0, 0.0, 0.0);
+	rayPayload.randomSeed = seed;
+	rayPayload.depth = 0;
+
+	// shoot primary ray
+	TraceRay(_RaytracingAccelerationStructure, RAY_FLAG_NONE, RAYTRACING_OPAQUE_FLAG, 0, 1, 0, rayDesc, rayPayload);
+
+	// store result
+	float3 color = rayPayload.color;	   
+	_DxrTarget[dispatchIdx] = float4(color, 1);	
+}
+
+// "back up" closest hit shader. it is used when we hit material without raytracing shader pass
+[shader("closesthit")]
+void ClosestHitMain(inout RayPayload rayPayload : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
+{
+	// simply return pink color to signal error
+	rayPayload.color = float3(1.0, 0.0, 0.5);
+}
+
+// miss shader, used when we don't hit any geometry
+[shader("miss")]
+void MissShader(inout RayPayload rayPayload : SV_RayPayload)
+{
+	// return gradient background color
+	float3 rayDir = WorldRayDirection();
+	rayPayload.color = lerp(_GroundColor, _SkyColor, rayDir.y * 0.5 + 0.5);	
+}
