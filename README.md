@@ -13,4 +13,4 @@ Simple PathTracer implemented in Unity and powered by DXR. You can see it as an 
 ## Requirements
 * Unity 2019.3b2 or newer
 * DXR compatible graphics card (NVidia RTX series or some cars from NVidia GeForce 10 and 16 series)
-* Windows 10 (v1809)
+* Windows 10 (v1809 or newer)
