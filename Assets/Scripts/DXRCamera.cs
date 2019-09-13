@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Experimental.Rendering;
-using UnityEngine.Rendering;
 
 public class DXRCamera : MonoBehaviour
 {	
@@ -102,8 +98,16 @@ public class DXRCamera : MonoBehaviour
 	}
 
 	private void InitRaytracingAccelerationStructure()
-	{		
-		_rtas = new RayTracingAccelerationStructure();
+	{
+		RayTracingAccelerationStructure.RASSettings settings = new RayTracingAccelerationStructure.RASSettings();
+		// include all layers
+		settings.layerMask = ~0;
+		// enable automatic updates
+		settings.managementMode = RayTracingAccelerationStructure.ManagementMode.Automatic;
+		// include all renderer types
+		settings.rayTracingModeMask = RayTracingAccelerationStructure.RayTracingModeMask.Everything;
+
+		_rtas = new RayTracingAccelerationStructure(settings);
 		
 		// collect all objects in scene and add them to raytracing scene
 		Renderer[] renderers = FindObjectsOfType<Renderer>();
